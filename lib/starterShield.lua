@@ -17,10 +17,10 @@ local LED = {}
 
 LED.start = function()
 -- configure LED pins for output
-   storm.io.set_mode(storm.io.OUTPUT, storm.io.D2)
-   storm.io.set_mode(storm.io.OUTPUT, storm.io.D3)
-   storm.io.set_mode(storm.io.OUTPUT, storm.io.D4)
-   storm.io.set_mode(storm.io.OUTPUT, storm.io.D5)
+   storm.io.set_mode(storm.io.OUTPUT, storm.io.D2, 
+		     storm.io.D3, 
+		     storm.io.D4,
+		     storm.io.D5)
 end
 
 LED.stop = function()
@@ -81,9 +81,11 @@ Buzz.go = function()
    cord.new(function()
 	       while Buzz.run do
 		  storm.io.set(1,storm.io.D6)
-		  cord.yield()
 		  storm.io.set(0,storm.io.D6)	       
-		  cord.yield()
+		  if (delay == 0) then cord.yield()
+		  else cord.await(storm.os.invokeLater, 
+				  delay*storm.os.MILLISECOND)
+		  end
 	       end
 	    end)
 end
