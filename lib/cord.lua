@@ -17,8 +17,10 @@ cord._PROMISEDONE = 5
 
 cord.new = function (f)
     local co = coroutine.create(f)
-    cord._cors[cord._coidx] = {c=co,s=cord._READY}
+    cord._cors[cord._coidx] = {c=co,s=cord._READY }
+    local handle = cord._coidx
     cord._coidx = cord._coidx + 1
+    return handle
 end
 
 cord.await = function(f, ...)
@@ -26,10 +28,15 @@ cord.await = function(f, ...)
     cord._cors[cord._activeidx].rv=nil
     local aidx = cord._activeidx
 
-    f(..., function (...)
+    local argf = function (...)
         cord._cors[aidx].s=cord._PROMISEDONE
         cord._cors[aidx].rv={...}
-        end, cord._activeidx)--]]
+    end
+    if (... == nil) then
+        f(argf)
+    else
+        f(..., argf)
+    end
     return coroutine.yield()
 end
 
@@ -41,14 +48,14 @@ cord.enter_loop = function ()
                 ranone = true
                 cord._activeidx = i
                 coroutine.resume(v.c)
-                if (coroutine.status(v.c) == "dead") then
+                if (coroutine.status(v.c) == "dead" or v.k) then
                     cord._cors[i] = nil
                 end
             elseif (v.s == cord._PROMISEDONE) then
                 cord._activeidx = i;
                 v.s = cord._READY
                 coroutine.resume(v.c, unpack(v.rv))
-                if (coroutine.status(v.c) == "dead") then
+                if (coroutine.status(v.c) == "dead" or v.k) then
                     cord._cors[i] = nil
                 end
             end
@@ -65,3 +72,9 @@ end
 cord.yield = function()
     coroutine.yield()
 end
+
+cord.cancel = function(handle)
+    cord._cors[handle].k = true
+end
+
+cord.cancel(h)
