@@ -1,7 +1,7 @@
 
 require "cord" -- scheduler / fiber library
 
-local sock = storm.net.bind(100, function(payload, from, port)
+local sock = storm.net.udpsocket(100, function(payload, from, port)
     print (string.format("Got a message from %s port %d",from,port))
     print ("Payload: ", payload)
 end)

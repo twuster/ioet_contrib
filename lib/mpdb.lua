@@ -8,7 +8,7 @@ mpdb._server_port = nil
 mpdb.connect = function (addr, port)
     mpdb._server_addr = addr
     mpdb._server_port = port
-    mpdb._sock = storm.net.bind(200, function(payload, from, port)
+    mpdb._sock = storm.net.udpsocket(200, function(payload, from, port)
         print ("Got a message from ",from, " port ",port)
         done = storm.mp.unpack(payload)
         for i, tab in ipairs(done["results"]) do 
