@@ -48,14 +48,14 @@ cord.enter_loop = function ()
                 ranone = true
                 cord._activeidx = i
                 coroutine.resume(v.c)
-                if (coroutine.status(v.c) == "dead") then
+                if (coroutine.status(v.c) == "dead" or v.k) then
                     cord._cors[i] = nil
                 end
             elseif (v.s == cord._PROMISEDONE) then
                 cord._activeidx = i;
                 v.s = cord._READY
                 coroutine.resume(v.c, unpack(v.rv))
-                if (coroutine.status(v.c) == "dead") then
+                if (coroutine.status(v.c) == "dead" or v.k) then
                     cord._cors[i] = nil
                 end
             end
@@ -74,5 +74,7 @@ cord.yield = function()
 end
 
 cord.cancel = function(handle)
-    cord._cors[handle] = nil
+    cord._cors[handle].k = true
 end
+
+cord.cancel(h)
