@@ -76,5 +76,3 @@ end
 cord.cancel = function(handle)
     cord._cors[handle].k = true
 end
-
-cord.cancel(h)
