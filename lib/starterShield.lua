@@ -125,16 +125,23 @@ end
 -- must be used with cord.enter_loop
 -- none of these are debounced.
 -------------------
-Button.when = function(button, transition, action)
+Button.whenever = function(button, transition, action)
    -- register call back to fire when button is pressed
    local pin = Button.pins[button]
    storm.io.watch_all(storm.io[transition], storm.io[pin], action)
+end
+
+Button.when = function(button, transition, action)
+   -- register call back to fire when button is pressed
+   local pin = Button.pins[button]
+   storm.io.watch_single(storm.io[transition], storm.io[pin], action)
 end
 
 Button.wait = function(button)
 -- Wait on a button press
 --   suspend execution of the filament
 --   resume and return when transition occurs
+-- DEC: this doesn't quite work.  Return to it
    local pin = Button.pins[button]
    cord.new(function()
 	       cord.await(storm.io.watch_single,
