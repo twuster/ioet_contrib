@@ -3,17 +3,24 @@
 --
 -- Provides a module for each resource on the starter shield
 -- in a cord-based concurrency model
+-- and mapping to lower level abstraction provided
+-- by storm.io @ toolchains/storm_elua/src/platform/storm/libstorm.c
 ----------------------------------------------
 
 require("storm") -- libraries for interfacing with the board and kernel
 require("cord") -- scheduler / fiber library
-
+----------------------------------------------
+-- Shield module for starter shield
+----------------------------------------------
+local shield = {}
 
 ----------------------------------------------
 -- LED module
 -- provide basic LED functions
 ----------------------------------------------
 local LED = {}
+
+LED.pins = {["blue"]="D2",["green"]="D3",["red"]="D4",["red2"]="D5"}
 
 LED.start = function()
 -- configure LED pins for output
@@ -27,44 +34,27 @@ LED.stop = function()
 -- configure pins to a low power state
 end
 
--- LED color functions get set the LED or set it to a binary state
--- with no arg or nil, returns the current state unchanged
--- otherwise sets state and returns it
--- These should rarely be used in isolation as an active LED 
---- burns a lot of power
-
-LED.blue = function(state) return LED.getset("D2",state) end
-LED.green = function(state) return LED.getset("D3",state) end
-LED.red = function(state) return LED.getset("D4",state) end
-
-LED.getset = function(pin, state)
-   if (state == nil) then return storm.io.get(storm.io[pin])
-   elseif (state==0) then storm.io.set(0,storm.io[pin]); return state
-   else storm.io.set(1,storm.io[pin]); return state
-   end
+-- LED color functions
+-- These should rarely be used as an active LED burns a lot of power
+LED.on = function(color)
+   storm.io.set(1,storm.io[LED.pins[color]])
+end
+LED.off = function(color)
+   storm.io.set(0,storm.io[LED.pins[color]])
 end
 
--- Strobe an LED pin for a period of time
---    unspecified duration is default of 50 ms
+-- Flash an LED pin for a period of time
+--    unspecified duration is default of 10 ms
 --    this is dull for green, but bright for read and blue
 --    assumes cord.enter_loop() is in effect to schedule filaments
-LED.blueStrobe = function(duration) LED.strobe("D2",duration) end
-LED.greenStrobe = function(duration) LED.strobe("D3",duration) end
-LED.redStrobe = function(duration) LED.strobe("D4",duration) end
-
-LED.strobe=function(pin,duration)
-   duration = duration or 50
+LED.flash=function(color,duration)
+   local pin = LED.pins[color] or LED.pins["red2"]
+   duration = duration or 10
    storm.io.set(1,storm.io[pin])
    storm.os.invokeLater(duration*storm.os.MILLISECOND,
 			function() 
 			   storm.io.set(0,storm.io[pin]) 
 			end)
-end
-
-LED.display = function (val)
-   if (val   % 2 == 1) then LED.blue(1) else LED.blue(0) end
-   if (val/2 % 2 == 1) then LED.green(1) else LED.green(0) end
-   if (val/4 % 2 == 1) then LED.red(1) else LED.red(0) end
 end
 
 ----------------------------------------------
@@ -74,10 +64,15 @@ end
 local Buzz = {}
 
 Buzz.run = nil
-Buzz.go = function()
--- configure buzzer pin for output
+Buzz.go = function(delay)
+   delay = delay or 0
+   -- configure buzzer pin for output
    storm.io.set_mode(storm.io.OUTPUT, storm.io.D6)
    Buzz.run = true
+   -- create buzzer filament and run till stopped externally
+   -- this demonstrates the await pattern in which
+   -- the filiment is suspended until an asynchronous call 
+   -- completes
    cord.new(function()
 	       while Buzz.run do
 		  storm.io.set(1,storm.io.D6)
@@ -91,16 +86,67 @@ Buzz.go = function()
 end
 
 Buzz.stop = function()
-   Buzz.run = false
+   print ("Buzz.stop")
+   Buzz.run = false		-- stop Buzz.go partner
 -- configure pins to a low power state
 end
 
+----------------------------------------------
+-- Button module
+-- provide basic button functions
+----------------------------------------------
+local Button = {}
+
+Button.pins = {"D9","D10","D11"}
+
+Button.start = function() 
+   -- set buttons as inputs
+   storm.io.set_mode(storm.io.INPUT,   
+		     storm.io.D9, storm.io.D10, storm.io.D11)
+   -- enable internal resistor pullups (none on board)
+   storm.io.set_pull(storm.io.PULL_UP, 
+		     storm.io.D9, storm.io.D10, storm.io.D11)
+end
+
+-- Get the current state of the button
+-- can be used when poling buttons
+Button.pressed = function(button) 
+   return 1-storm.io.get(storm.io[Button.pins[button]]) 
+end
+
+-------------------
+-- Button events
+-- each registers a call back on a particular transition of a button
+-- valid transitions are:
+--   FALLING - when a button is pressed
+--   RISING - when it is released
+--   CHANGE - either case
+-- Only one transition can be in effect for a button
+-- must be used with cord.enter_loop
+-- none of these are debounced.
+-------------------
+Button.when = function(button, transition, action)
+   -- register call back to fire when button is pressed
+   local pin = Button.pins[button]
+   storm.io.watch_all(storm.io[transition], storm.io[pin], action)
+end
+
+Button.wait = function(button)
+-- Wait on a button press
+--   suspend execution of the filament
+--   resume and return when transition occurs
+   local pin = Button.pins[button]
+   cord.new(function()
+	       cord.await(storm.io.watch_single,
+			  storm.io.FALLING, 
+			  storm.io[pin])
+	    end)
+end
 
 ----------------------------------------------
--- Shield module for starter shield
-----------------------------------------------
-local shield = {}
-
 shield.LED = LED
 shield.Buzz = Buzz
+shield.Button = Button
 return shield
+
+
