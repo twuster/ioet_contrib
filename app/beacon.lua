@@ -7,8 +7,9 @@ local sock = storm.net.udpsocket(100, function(payload, from, port)
 end)
 
 local count = 0
-storm.os.startPeriodic(5*storm.os.SECOND, function()
-    storm.net.sendto(sock, string.format("0x%04 says count=%d", storm.os.nodeid(), count), "ff02::1", 100)
+storm.os.invokePeriodically(5*storm.os.SECOND, function()
+    storm.net.sendto(sock, string.format("0x%04x says count=%d", storm.os.nodeid(), count), "ff02::1", 100)
+    count = count + 1
     end
 )
 
