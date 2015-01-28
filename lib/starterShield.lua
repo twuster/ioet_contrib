@@ -105,6 +105,7 @@ end
 local Buzz = {}
 Buzz.status = 0
 Buzz.task = nil
+Buzz.killed = 0
 
 Buzz.go = function(delay)
 -- TODO
@@ -113,7 +114,12 @@ Buzz.go = function(delay)
       		delay = 10
   	 end
    local r = storm.os.invokePeriodically(delay*storm.os.MILLISECOND, function()
-	Buzz.flip()
+	if Buzz.killed ~=1 then
+		Buzz.flip()
+	else
+		Buzz.killed = 0
+		break
+	end
    end
    )
    Buzz.task = r
@@ -127,6 +133,7 @@ end
 
 Buzz.stop = function()
 -- TODO
+	Buzz.killed = 1
 	if Buzz.task then
 		print("stopped")
 		storm.os.cancel(Buzz.task)
