@@ -52,7 +52,7 @@ end
 --    this is dull for green, but bright for read and blue
 --    assumes cord.enter_loop() is in effect to schedule filaments
 -- We return the periodic task, color pair so that it can be stopped later
-LED.flash1=function(color,duration)
+LED.flash=function(color,duration)
    if duration == nil then
       duration = 10
    end
@@ -60,10 +60,11 @@ LED.flash1=function(color,duration)
 	LED.flip(color)
    end
    )
+   LED.handles[color] = r
    return {r, color}
 end
 
-LED.flash=function(color,duration, count)
+LED.flashWithCount=function(color,duration, count)
    local count = count *2
    if duration == nil then
       duration = 10
@@ -102,13 +103,36 @@ end
 -- provide basic buzzer functions
 ----------------------------------------------
 local Buzz = {}
+Buzz.status = 0
+Buzz.task = nil
 
 Buzz.go = function(delay)
 -- TODO
+	storm.io.set_mode(storm.io.OUTPUT, storm.io.D6)
+	if delay == nil then
+      		delay = 10
+  	 end
+   local r = storm.os.invokePeriodically(delay*storm.os.MILLISECOND, function()
+	Buzz.flip()
+   end
+   )
+   Buzz.task = r
+   return r
+end
+
+Buzz.flip = function()
+	storm.io.set(1-Buzz.status, storm.io.D6)
+	Buzz.status = 1- Buzz.status
 end
 
 Buzz.stop = function()
 -- TODO
+	if Buzz.task then
+		print("stopped")
+		storm.os.cancel(Buzz.task)
+		storm.io.set(0, storm.io.D6)
+	end
+	Buzz.task = nil
 end
 
 ----------------------------------------------
