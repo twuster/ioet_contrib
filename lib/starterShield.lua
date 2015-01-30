@@ -14,6 +14,10 @@ require("cord") -- scheduler / fiber library
 ----------------------------------------------
 local shield = {}
 
+shield.wait_ms = function(ms) 
+    cord.await(storm.os.invokeLater, ms*storm.os.MILLISECOND)
+end
+
 ----------------------------------------------
 -- LED module
 -- provide basic LED functions
@@ -52,50 +56,50 @@ end
 --    this is dull for green, but bright for read and blue
 --    assumes cord.enter_loop() is in effect to schedule filaments
 -- We return the periodic task, color pair so that it can be stopped later
-LED.flash=function(color,duration)
+LED.flash=function(color, period)
    if duration == nil then
       duration = 10
    end
-   local r = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, function()
-	LED.flip(color)
-   end
-   )
-   LED.handles[color] = r
-   return {r, color}
+   duration = period / 2
+   LED.handles[color] = true 
+   cord.new(function()
+        while LED.handles[color] do
+            LED.flip(color)
+            shield.wait_ms(duration)
+        end
+        LED.off(color)
+    end)
 end
 
-LED.flashWithCount=function(color,duration, count)
+LED.flashWithCount=function(color,period, count)
    local count = count *2
-   if duration == nil then
-      duration = 10
+   if period == nil then
+      period = 10
    end
-   local r = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, function()
-	if count and count > 0 then
-		LED.flip(color)
-	 	count = count -1
-	else
-   		LED.stopFlash(color)
-	end
-   end
-   )
-   LED.handles[color] = r
-   return {r, color}
+   local duration = period / 2
+   LED.handles[color] = true
+   cord.new(function()
+        while count and count > 0 and LED.handles[color] do
+            LED.flip(color)
+            count = count - 1
+            cord.await(storm.os.invokeLater, duration*storm.os.MILLISECOND)
+        end
+        LED.off(color)
+        LED.handles[color] = false
+   end)
 end
-
-
 
 -- Given a task and color tuple, it stops that led from flashing
 LED.stopFlash = function(color)
-   storm.os.cancel(LED.handles[color])
- storm.io.set(0,storm.io[LED.pins[color]])
+    LED.handles[color] = false
 end
 
 -- Flips the status of an LED between on and off
 LED.flip = function(color)
-      if LED.status[color]==1 then
-	  LED.off(color)
-      else
-	 LED.on(color)
+    if LED.status[color]==1 then
+	    LED.off(color)
+    else
+	    LED.on(color)
 	end
 end
 ----------------------------------------------
@@ -104,29 +108,32 @@ end
 ----------------------------------------------
 local Buzz = {}
 Buzz.status = 0
-Buzz.task = nil
 Buzz.killed = 0
+Buzz.task = nil
 Buzz.TENTHMS = storm.os.MILLISECOND / 10
-Buzz.delays = {["5kHz"]=1, ["2.5kHz"]=2, ["1kHz"]=5, ["500Hz"]=10, ["250Hz"]=20}
+Buzz.periods = {["5kHz"]=2, ["2.5kHz"]=4, ["1kHz"]=10, ["500Hz"]=20, ["250Hz"]=40}
+
+Buzz.wait_tenthms = function(delay)
+    cord.await(storm.os.invokeLater, delay*Buzz.TENTHMS)
+end
 
 Buzz.start = function()
 	storm.io.set_mode(storm.io.OUTPUT, storm.io.D6)
 end
 
-Buzz.go = function(delay)
-	if delay == nil then
-      		delay = 10
-  	 end
-   local r = storm.os.invokePeriodically(delay*Buzz.TENTHMS, function()
-	if Buzz.killed ~=1 then
-		Buzz.flip()
-	else
-		Buzz.killed = 0
-	end
-   end
-   )
-   Buzz.task = r
-   return r
+Buzz.go = function(period)
+	if period == nil then
+      		period = 10
+  	end
+    local delay = period / 2
+    Buzz.task = storm.os.invokePeriodically(delay*Buzz.TENTHMS,
+        function()
+            if Buzz.killed ~=1 then
+                Buzz.flip()
+            else
+                Buzz.killed = 0
+            end
+        end)
 end
 
 Buzz.flip = function()
@@ -136,12 +143,11 @@ end
 
 Buzz.stop = function()
 	Buzz.killed = 1
-	if Buzz.task then
-		print("stopped")
-		storm.os.cancel(Buzz.task)
-		storm.io.set(0, storm.io.D6)
-	end
-	Buzz.task = nil
+    if Buzz.task then
+        storm.os.cancel(Buzz.task)
+        storm.io.set(0, storm.io.D6)
+    end
+    Buzz.task = nil
 end
 
 ----------------------------------------------
