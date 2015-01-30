@@ -106,19 +106,22 @@ local Buzz = {}
 Buzz.status = 0
 Buzz.task = nil
 Buzz.killed = 0
+Buzz.TENTHMS = storm.os.MILLISECOND / 10
+Buzz.delays = {["5kHz"]=1, ["2.5kHz"]=2, ["1kHz"]=5, ["500Hz"]=10, ["250Hz"]=20}
+
+Buzz.start = function()
+	storm.io.set_mode(storm.io.OUTPUT, storm.io.D6)
+end
 
 Buzz.go = function(delay)
--- TODO
-	storm.io.set_mode(storm.io.OUTPUT, storm.io.D6)
 	if delay == nil then
       		delay = 10
   	 end
-   local r = storm.os.invokePeriodically(delay*storm.os.MILLISECOND, function()
+   local r = storm.os.invokePeriodically(delay*Buzz.TENTHMS, function()
 	if Buzz.killed ~=1 then
 		Buzz.flip()
 	else
 		Buzz.killed = 0
-		break
 	end
    end
    )
@@ -132,7 +135,6 @@ Buzz.flip = function()
 end
 
 Buzz.stop = function()
--- TODO
 	Buzz.killed = 1
 	if Buzz.task then
 		print("stopped")
@@ -150,7 +152,6 @@ local Button = {}
 local button_map = {storm.io.D9, storm.io.D10, storm.io.D11}
 
 Button.start = function() 
--- TODO 
    storm.io.set_mode(storm.io.INPUT, button_map[1], button_map[2], button_map[3])
    storm.io.set_pull(storm.io.PULL_UP, button_map[1])
    storm.io.set_pull(storm.io.PULL_UP, button_map[2])
@@ -160,7 +161,6 @@ end
 -- Get the current state of the button
 -- can be used when poling buttons
 Button.pressed = function(button) 
--- TODO
    return storm.io.get(button_map[button]) == 0
 end
 
@@ -176,17 +176,14 @@ end
 -- none of these are debounced.
 -------------------
 Button.whenever = function(button, transition, action)
--- TODO
    storm.io.watch_all(transition, button, action)
 end
 
 Button.when = function(button, transition, action)
--- TODO
    storm.io.watch_single(transition, button, action)
 end
 
 Button.wait = function(button)
--- TODO
    cord.await(storm.io.watch_single, storm.io.FALLING, button_map[button])
 end
 
