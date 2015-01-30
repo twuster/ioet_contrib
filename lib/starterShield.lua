@@ -56,12 +56,10 @@ LED.flash=function(color,duration)
    if duration == nil then
       duration = 10
    end
-   local r = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, function()
-	LED.flip(color)
-   end
-   )
-   LED.handles[color] = r
-   return {r, color}
+   LED.handles[color] = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, 
+   function()
+	    LED.flip(color)
+   end)
 end
 
 LED.flashWithCount=function(color,duration, count)
@@ -69,33 +67,31 @@ LED.flashWithCount=function(color,duration, count)
    if duration == nil then
       duration = 10
    end
-   local r = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, function()
-	if count and count > 0 then
-		LED.flip(color)
-	 	count = count -1
-	else
-   		LED.stopFlash(color)
-	end
-   end
-   )
-   LED.handles[color] = r
-   return {r, color}
+   LED.handles[color] = storm.os.invokePeriodically(duration*storm.os.MILLISECOND, 
+   function()
+	    if count and count > 0 then
+		    LED.flip(color)
+	 	    count = count -1
+	    else
+   		    LED.stopFlash(color)
+	    end
+   end)
 end
 
 
 
 -- Given a task and color tuple, it stops that led from flashing
 LED.stopFlash = function(color)
-   storm.os.cancel(LED.handles[color])
- storm.io.set(0,storm.io[LED.pins[color]])
+    storm.os.cancel(LED.handles[color])
+    storm.io.set(0,storm.io[LED.pins[color]])
 end
 
 -- Flips the status of an LED between on and off
 LED.flip = function(color)
-      if LED.status[color]==1 then
-	  LED.off(color)
-      else
-	 LED.on(color)
+    if LED.status[color]==1 then
+	    LED.off(color)
+    else
+	    LED.on(color)
 	end
 end
 ----------------------------------------------
@@ -116,17 +112,16 @@ end
 Buzz.go = function(delay)
 	if delay == nil then
       		delay = 10
-  	 end
-   local r = storm.os.invokePeriodically(delay*Buzz.TENTHMS, function()
-	if Buzz.killed ~=1 then
-		Buzz.flip()
-	else
-		Buzz.killed = 0
-	end
-   end
-   )
-   Buzz.task = r
-   return r
+    end
+    Buzz.task = storm.os.invokePeriodically(delay*Buzz.TENTHMS, 
+    function()
+	    if Buzz.killed ~=1 then
+		    Buzz.flip()
+	    else
+		    Buzz.killed = 0
+	    end
+    end)
+    Buzz.task = r
 end
 
 Buzz.flip = function()
@@ -137,7 +132,6 @@ end
 Buzz.stop = function()
 	Buzz.killed = 1
 	if Buzz.task then
-		print("stopped")
 		storm.os.cancel(Buzz.task)
 		storm.io.set(0, storm.io.D6)
 	end
