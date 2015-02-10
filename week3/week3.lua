@@ -9,13 +9,11 @@ invocation_port = 1526
 -- table of services
 services = {}
 
-
 -- create an announcement
 announcement = {
 	id="wassup",
-	setRlyA={ s="setBool", desc= "red LED" },
-	setRlyB={ s="setBool", desc= "green LED" },
-	setRlyC={ s="setBool", desc= "blue LED" },
+	printString={ s="", desc= "prints a string" },
+	getNow={ s="getNumber", desc= "get the current time"},
 }
 
 -- create client socket
@@ -24,23 +22,39 @@ csock = storm.net.udpsocket(announcement_port,
 		-- store payload into our services table
 		print("Got response: %s", payload)
                 local unpacked = storm.mp.unpack(payload)
-		for k,v in pairs(unpacked) do 
-			print("service: key: %s value: %s", k,v)
-			id = nil
-			if k ~= "id" then
-				-- If not id, map the id and address to the services
-				if services[k] then
-					services[k][id] = from
+		-- if we receive an announcement
+		if port == announcement_port then
+			for k,v in pairs(unpacked) do 
+				print("service: key: %s value: %s", k,v)
+				id = nil
+				if k ~= "id" then
+					-- If not id, map the id and address to the services
+					if services[k] then
+						services[k][id] = from
+					else
+						services[k] = {id= from}
+					end
 				else
-					services[k] = {id= from}
+					-- store the id
+					id = k
 				end
+				for ke, va in pairs(services) do
+					print("saved: ", ke, va)
+				end
+			end
+		-- if we receive a service invocation
+		elseif port == invocation_port then
+			-- get the service name
+			local s_name = unpacked[1]
+			if s_name == "printString" then
+				rtn = svc_stdout(from, port, unpacked[2][1])
+				sendMessage(rtn, port, from)
+			elseif s_name == "getNow" then
+				rtn = svc_getNow()
+				sendMessage(rtn, port, from)
 			else
-				-- store the id
-				id = k
-			end
-			for ke, va in pairs(services) do
-				print("saved: ", ke, va)
-			end
+				print("Unsupported service")
+			end	
 		end
 	end)
 
@@ -55,26 +69,34 @@ function getMapping(service)
 
 end
 
+-- our service functions
+function svc_stdout(from_ip, from_port, msg)
+  	print (string.format("[STDOUT] (ip=%s, port=%d) %s", from_ip, from_port, msg))
+end
+
+function svc_getNow()
+	return storm.os.now(storm.os.SHIFT_0)
+end
 
 -- sends a message through a port
-function sendMessage(msg, port)
+function sendMessage(msg, port, address)
 	-- TODO: include time
 	-- msg["time"] = storm.os.now(storm.os.SHIFT_0)
 	
 	-- print("send: ", storm.mp.pack(msg))
-	storm.net.sendto(csock, storm.mp.pack(msg), "ff02::1", port)
+	storm.net.sendto(csock, storm.mp.pack(msg), address, port)
 	
 end
 
 -- periodically send out our services
 if sendHandle == nil then
-	sendHandle = storm.os.invokePeriodically(2000*storm.os.MILLISECOND, sendMessage, announcement, announcement_port)
+	sendHandle = storm.os.invokePeriodically(2000*storm.os.MILLISECOND, sendMessage, announcement, announcement_port, "ff02::1")
 end
 
 -- service invocation function
 function invokeFunction(name, params) 
 	local msg = {name, params}
-	sendMessage(storm.mp.pack(msg), invocation_port)
+	sendMessage(storm.mp.pack(msg), invocation_port, "ff02::1")
 end
 
 sh.start()
