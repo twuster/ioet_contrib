@@ -24,19 +24,20 @@ csock = storm.net.udpsocket(announcement_port,
                 local unpacked = storm.mp.unpack(payload)
 		-- if we receive an announcement
 		if port == announcement_port then
+			local id = unpacked["id"]
 			for k,v in pairs(unpacked) do 
-				print("service: key: %s value: %s", k,v)
-				id = nil
+				print("service: key: value: ", k,v)
 				if k ~= "id" then
 					-- If not id, map the id and address to the services
 					if services[k] then
-						services[k][id] = from
+						if not contains(services[k], id) then
+							table.insert(services[k], id)
+						end		
 					else
-						services[k] = {id= from}
+						local t = {}
+						table.insert(t, id)
+						services[k] = t
 					end
-				else
-					-- store the id
-					id = k
 				end
 				for ke, va in pairs(services) do
 					print("saved: ", ke, va)
@@ -67,6 +68,16 @@ function getMapping(service)
 		print("No such service stored")
 	end
 
+end
+
+-- checks if a table contains an element
+function contains(table, element)
+	for idx, elem in pairs(table) do
+		if elem == element then
+			return true
+		end
+	end
+	return false
 end
 
 -- our service functions
