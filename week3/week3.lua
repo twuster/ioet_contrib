@@ -20,7 +20,7 @@ announcement = {
 csock = storm.net.udpsocket(announcement_port,
 	function(payload, from, port)
 		-- store payload into our services table
-		print("Got response: %s", payload)
+		print("Got response from: ", from)
                 local unpacked = storm.mp.unpack(payload)
 		-- if we receive an announcement
 		--if port == announcement_port then
@@ -39,29 +39,14 @@ csock = storm.net.udpsocket(announcement_port,
 						services[k] = t
 					end
 				end
-				--[[for ke, va in pairs(services) do
-					print("saved: ", ke, va)
-				end]]--
 			end
-		-- if we receive a service invocation
-		--[[elseif port == invocation_port then
-			-- get the service name
-			print ("invoked 1")
-			local s_name = unpacked[1]
-			print("service: ", s_name)
-			if s_name == "printString" then
-				print("inside print stirng")
-				rtn = svc_stdout(from, port, unpacked[2][1])
-				sendMessage(rtn, port, from)
-			elseif s_name == "getNow" then
-				rtn = svc_getNow()
-				sendMessage(rtn, port, from)
-			else
-				print("Unsupported service")
-			end	
-		end]]--
+			-- print current services table
+			for i,j in pairs(services) do
+				print(i,j)
+			end
 	end)
 
+-- socket listening on invocation port
 isock = storm.net.udpsocket(invocation_port,
 	function(payload, from, port)
 		-- get the service name
@@ -73,10 +58,10 @@ isock = storm.net.udpsocket(invocation_port,
 		if s_name == "printString" then
 			print("inside print stirng")
 			rtn = svc_stdout(from, port, unpacked[2][1])
-			sendMessage(rtn, port, from)
+			sendInvokeMessage(rtn, port, from)
 		elseif s_name == "getNow" then
 			rtn = svc_getNow()
-			sendMessage(rtn, port, from)
+			sendInvokeMessage(rtn, port, from)
 		else
 			print("Unsupported service")
 		end
