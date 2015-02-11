@@ -136,6 +136,12 @@ function invokeFunction(name, params)
 	sendInvokeMessage(msg, invocation_port, "ff02::1")
 end
 
+
+function invokeLEDFunction(name, params) 
+	local msg = {name, params}
+	sendInvokeMessage(msg, invocation_port, "fe80::212:6d02:0:304E")
+end
+
 sh.start()
 cord.enter_loop()
 
