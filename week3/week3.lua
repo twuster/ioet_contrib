@@ -65,19 +65,21 @@ csock = storm.net.udpsocket(announcement_port,
 isock = storm.net.udpsocket(invocation_port,
 	function(payload, from, port)
 		-- get the service name
-			print ("invoked 1")
-			local s_name = unpacked[1]
-			print("service: ", s_name)
-			if s_name == "printString" then
-				print("inside print stirng")
-				rtn = svc_stdout(from, port, unpacked[2][1])
-				sendMessage(rtn, port, from)
-			elseif s_name == "getNow" then
-				rtn = svc_getNow()
-				sendMessage(rtn, port, from)
-			else
-				print("Unsupported service")
-			end
+		print ("invoked 1")
+		local unpacked = storm.mp.unpack(payload)
+		local s_name = unpacked[1]
+		print(unpacked)
+		print("service: ", s_name)
+		if s_name == "printString" then
+			print("inside print stirng")
+			rtn = svc_stdout(from, port, unpacked[2][1])
+			sendMessage(rtn, port, from)
+		elseif s_name == "getNow" then
+			rtn = svc_getNow()
+			sendMessage(rtn, port, from)
+		else
+			print("Unsupported service")
+		end
 	end)
 
 -- get ip and addresses associated with a service
@@ -131,7 +133,7 @@ end
 -- service invocation function
 function invokeFunction(name, params) 
 	local msg = {name, params}
-	sendInvokeMessage(storm.mp.pack(msg), invocation_port, "ff02::1")
+	sendInvokeMessage(msg, invocation_port, "ff02::1")
 end
 
 sh.start()
