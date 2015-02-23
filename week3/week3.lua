@@ -5,6 +5,9 @@ sh = require "stormsh"
 ipaddr = storm.os.getipaddr()
 announcement_port = 1525
 invocation_port = 1526
+phone_port = 1527
+waiting_for_return = false
+waiting_for_temp = false
 
 -- table of services
 services = {}
@@ -20,7 +23,7 @@ announcement = {
 csock = storm.net.udpsocket(announcement_port,
 	function(payload, from, port)
 		-- store payload into our services table
-		print("Got response: %s", payload)
+		print("Got response from: ", from)
                 local unpacked = storm.mp.unpack(payload)
 		-- if we receive an announcement
 		--if port == announcement_port then
@@ -39,44 +42,39 @@ csock = storm.net.udpsocket(announcement_port,
 						services[k] = t
 					end
 				end
-				--[[for ke, va in pairs(services) do
-					print("saved: ", ke, va)
-				end]]--
 			end
-		-- if we receive a service invocation
-		--[[elseif port == invocation_port then
-			-- get the service name
-			print ("invoked 1")
-			local s_name = unpacked[1]
-			print("service: ", s_name)
-			if s_name == "printString" then
-				print("inside print stirng")
-				rtn = svc_stdout(from, port, unpacked[2][1])
-				sendMessage(rtn, port, from)
-			elseif s_name == "getNow" then
-				rtn = svc_getNow()
-				sendMessage(rtn, port, from)
-			else
-				print("Unsupported service")
-			end	
-		end]]--
+			-- print current services table
+			for i,j in pairs(services) do
+				print(i,j)
+			end
 	end)
 
+-- socket listening on invocation port
 isock = storm.net.udpsocket(invocation_port,
 	function(payload, from, port)
 		-- get the service name
 		print ("invoked 1")
 		local unpacked = storm.mp.unpack(payload)
+		if (waiting_for_return) then
+			print(unpacked)
+			if (waiting_for_temp) then
+				print("sending to phone")
+				sendToPhone(unpacked)
+				waiting_for_temp = false
+			end
+			waiting_for_return = false
+			return
+		end
 		local s_name = unpacked[1]
 		print(unpacked)
 		print("service: ", s_name)
 		if s_name == "printString" then
 			print("inside print stirng")
 			rtn = svc_stdout(from, port, unpacked[2][1])
-			sendMessage(rtn, port, from)
+			sendInvokeMessage(rtn, port, from)
 		elseif s_name == "getNow" then
 			rtn = svc_getNow()
-			sendMessage(rtn, port, from)
+			sendInvokeMessage(rtn, port, from)
 		else
 			print("Unsupported service")
 		end
@@ -122,7 +120,20 @@ function sendMessage(msg, port, address)
 end
 
 function sendInvokeMessage(msg, port, address)
+	waiting_for_return = true
 	storm.net.sendto(isock, storm.mp.pack(msg), address, port)
+end
+
+psock = storm.net.udpsocket(phone_port,
+		function(payload, from, port)
+			print (payload)
+			print (port)
+			print (from)
+		end)
+
+function sendPhoneMessage(msg, port, address)	
+	print("second")
+	storm.net.sendto(psock, msg, address, port)
 end
 
 -- periodically send out our services
@@ -139,7 +150,33 @@ end
 
 function invokeLEDFunction(name, params) 
 	local msg = {name, params}
-	sendInvokeMessage(msg, invocation_port, "fe80::212:6d02:0:304E")
+	sendInvokeMessage(msg, invocation_port, "fe80::8e3a:e3ff:fe4c:1157")
+end
+
+function sendToPhone(msg)
+	print('sending to phone')
+	sendPhoneMessage(msg, phone_port, "2001:470:4956:1:8e3a:e3ff:fe4c:1157")
+	--sendPhoneMessage(msg, phone_port, "2001:470:4956:2:212:6d02::3016")
+	
+
+	--sendPhoneMessage(msg, phone_port, "2001:470:4956:1:105c:58eb:317a:c340")
+--	sendPhoneMessage(msg, phone_port, "2001:470:4956:1:82e6:50ff:fe0e:89c4")
+	--sendPhoneMessage(msg, phone_port, "2001:470:4956:1:82e6:50ff:fe0e:89c4")
+	--sendPhoneMessage(msg, phone_port, "2607:f140:400:a008:8e3a:e3ff:fe4c:1157")
+	--sendPhoneMessage(msg, phone_port, "2001:470:1f04:5f2::2")
+end
+
+function sendPeriodically(msg)
+	storm.os.invokePeriodically(storm.os.MILLISECOND *1000, sendToPhone, msg)
+end
+
+function requestTemp()
+	invokeFunction('getDisp', {})
+	waiting_for_temp = true
+end
+
+function setReminder(msg)
+	invokeFunction('writeDisp', {msg})
 end
 
 sh.start()
